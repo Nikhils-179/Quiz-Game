@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 func main() {
 	csvFilename := flag.String("csv", "problems.csv", "a csv file in the format of 'questions , answers'")
 	limit := flag.Duration("limit", 30*time.Second, "default timer for the quiz")
+	shuffle := flag.Bool("shuffle", false, "set the shuffle on or off")
 	flag.Parse()
 	file, err := os.Open(*csvFilename)
 	if err != nil {
@@ -23,21 +25,20 @@ func main() {
 	if err != nil {
 		exit("Failed to parse the provided CSV file")
 	}
-	problems := parseLines(lines)
+	problems := parseLines(lines, *shuffle)
 	timer := time.NewTimer(*limit)
-	
-	
+
 	correct := 0
-	problemloop:
+problemloop:
 	for i, p := range problems {
 		fmt.Printf("Problem #%d: %s = \n", i+1, p.q)
 		answerCh := make(chan string)
-		go func ()  {
+		go func() {
 			var answer string
 			fmt.Scanf("%s\n", &answer)
 			answerCh <- answer
 		}()
-		select{
+		select {
 		case <-timer.C:
 			fmt.Println()
 			break problemloop
@@ -50,13 +51,19 @@ func main() {
 	fmt.Printf("You Scored %d out of %d.\n", correct, len(problems))
 }
 
-func parseLines(lines [][]string) []problem {
+func parseLines(lines [][]string, shuffle bool) []problem {
 	ret := make([]problem, len(lines))
 	for i, line := range lines {
 		ret[i] = problem{
 			q: line[0],
 			a: strings.TrimSpace(line[1]),
 		}
+	}
+	if shuffle {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		r.Shuffle(len(ret), func(i, j int) {
+			ret[i], ret[j] = ret[j], ret[i]
+		})
 	}
 	return ret
 }
